@@ -1,13 +1,62 @@
 # File Line Counter
 
-Shows the number of lines in each file next to it in the VSCode/IDX file explorer.
+Shows the number of lines in each file in the Explorer.
 
 ## Features
 
-- Displays line count for each file in the explorer
-- Updates automatically when files change
-- Lightweight and fast
+- 📊 **Badge in Explorer** - Shows line count next to each file
+- 📁 **Separate Tree View** - "Line Count" view with `[lineCount]` format
+- 🎨 **Color Indicators** - Configurable colors for different thresholds
+- ⚙️ **Fully Configurable** - Set your own thresholds and colors
 
-## Usage
+## Configuration
 
-Once installed, you'll see line counts appear next to each file in the file explorer.
+In Settings, search for `fileLineCounter.thresholds` or add to `settings.json`:
+
+```json
+"fileLineCounter.thresholds": [
+  { "lines": 100, "color": "charts.green" },
+  { "lines": 300, "color": "charts.blue" },
+  { "lines": 500, "color": "charts.yellow" },
+  { "lines": 1000, "color": "charts.red" }
+]
+```
+
+**Default:** 500 = yellow, 1000 = red
+
+## Available Colors
+
+Colors are VS Code **ThemeColor** names:
+
+### Alert Colors
+| Color | Name |
+|-------|------|
+| 🔴 Red | `editorError.foreground` |
+| 🟡 Yellow/Orange | `editorWarning.foreground` |
+| 🔵 Blue | `editorInfo.foreground` |
+
+### Chart Colors
+| Color | Name |
+|-------|------|
+| 🔴 Red | `charts.red` |
+| 🟠 Orange | `charts.orange` |
+| 🟡 Yellow | `charts.yellow` |
+| 🟢 Green | `charts.green` |
+| 🔵 Blue | `charts.blue` |
+| 🟣 Purple | `charts.purple` |
+
+### Git Colors
+| Color | Name |
+|-------|------|
+| 🟡 Modified | `gitDecoration.modifiedResourceForeground` |
+| 🟢 Added | `gitDecoration.addedResourceForeground` |
+| 🔴 Deleted | `gitDecoration.deletedResourceForeground` |
+
+## Badge Format
+
+| Lines | Badge |
+|-------|-------|
+| 0-99 | Full number (e.g., `42`) |
+| 100-999 | Hundreds (e.g., `5H` = 500s) |
+| 1000-9999 | Thousands (e.g., `2K`) |
+| 10000+ | Thousands (e.g., `15K`) |
