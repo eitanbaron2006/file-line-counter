@@ -20,9 +20,20 @@ export class LineCountDecorationProvider implements vscode.FileDecorationProvide
             if (stat.type === vscode.FileType.File) {
                 const lineCount = await this.getLineCount(uri.fsPath);
 
-                return {
+                const decoration: vscode.FileDecoration = {
                     badge: this.formatBadge(lineCount)
                 };
+
+                // Red color for files with 1000+ lines
+                if (lineCount >= 1000) {
+                    decoration.color = new vscode.ThemeColor('editorError.foreground');
+                }
+                // Yellow color for files with 500-999 lines
+                else if (lineCount >= 500) {
+                    decoration.color = new vscode.ThemeColor('editorWarning.foreground');
+                }
+
+                return decoration;
             }
         } catch (error) {
             // Ignore errors
