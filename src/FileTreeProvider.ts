@@ -46,15 +46,17 @@ export class FileTreeProvider implements vscode.TreeDataProvider<FileItem> {
                     file,
                     vscode.Uri.file(filePath),
                     vscode.TreeItemCollapsibleState.Collapsed,
-                    true
+                    true,
+                    0
                 ));
             } else {
                 const lineCount = await countLines(filePath);
                 items.push(new FileItem(
-                    `${file} (${lineCount} lines)`,
+                    file,
                     vscode.Uri.file(filePath),
                     vscode.TreeItemCollapsibleState.None,
-                    false
+                    false,
+                    lineCount
                 ));
             }
         }
@@ -68,7 +70,8 @@ class FileItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly resourceUri: vscode.Uri,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly isDirectory: boolean
+        public readonly isDirectory: boolean,
+        public readonly lineCount: number
     ) {
         super(label, collapsibleState);
 
@@ -76,6 +79,9 @@ class FileItem extends vscode.TreeItem {
         this.contextValue = isDirectory ? 'directory' : 'file';
 
         if (!isDirectory) {
+            // Show line count in brackets as description
+            this.description = `[${lineCount}]`;
+
             this.command = {
                 command: 'vscode.open',
                 title: 'Open File',

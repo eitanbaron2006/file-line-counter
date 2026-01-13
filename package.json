@@ -20,7 +20,51 @@
         "command": "file-line-counter.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "lineCountView",
+          "name": "Line Count"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "File Line Counter",
+      "properties": {
+        "fileLineCounter.thresholds": {
+          "type": "array",
+          "default": [
+            {
+              "lines": 500,
+              "color": "editorWarning.foreground"
+            },
+            {
+              "lines": 1000,
+              "color": "editorError.foreground"
+            }
+          ],
+          "description": "Line count thresholds with colors. Each item has 'lines' (threshold) and 'color' (VS Code ThemeColor). Higher thresholds take priority.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lines": {
+                "type": "number",
+                "description": "Line count threshold"
+              },
+              "color": {
+                "type": "string",
+                "description": "VS Code ThemeColor name (e.g., editorWarning.foreground, editorError.foreground)"
+              }
+            },
+            "required": [
+              "lines",
+              "color"
+            ]
+          }
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

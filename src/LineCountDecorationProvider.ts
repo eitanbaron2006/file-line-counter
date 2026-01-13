@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
+interface ThresholdConfig {
+    lines: number;
+    color: string;
+}
+
 export class LineCountDecorationProvider implements vscode.FileDecorationProvider {
     private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
     readonly onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
@@ -10,6 +15,13 @@ export class LineCountDecorationProvider implements vscode.FileDecorationProvide
     refresh(): void {
         this.cache.clear();
         this._onDidChangeFileDecorations.fire(undefined as any);
+    }
+
+    private getThresholds(): ThresholdConfig[] {
+        const config = vscode.workspace.getConfiguration('fileLineCounter');
+        const thresholds = config.get<ThresholdConfig[]>('thresholds') || [];
+        // Sort by lines descending so higher thresholds are checked first
+        return [...thresholds].sort((a, b) => b.lines - a.lines);
     }
 
     async provideFileDecoration(uri: vscode.Uri): Promise<vscode.FileDecoration | undefined> {
@@ -24,13 +36,13 @@ export class LineCountDecorationProvider implements vscode.FileDecorationProvide
                     badge: this.formatBadge(lineCount)
                 };
 
-                // Red color for files with 1000+ lines
-                if (lineCount >= 1000) {
-                    decoration.color = new vscode.ThemeColor('editorError.foreground');
-                }
-                // Yellow color for files with 500-999 lines
-                else if (lineCount >= 500) {
-                    decoration.color = new vscode.ThemeColor('editorWarning.foreground');
+                // Apply color based on configured thresholds
+                const thresholds = this.getThresholds();
+                for (const threshold of thresholds) {
+                    if (lineCount >= threshold.lines) {
+                        decoration.color = new vscode.ThemeColor(threshold.color);
+                        break;
+                    }
                 }
 
                 return decoration;
