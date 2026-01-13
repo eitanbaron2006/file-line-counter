@@ -10,7 +10,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -18,15 +20,7 @@
         "command": "file-line-counter.helloWorld",
         "title": "Hello World"
       }
-    ],
-    "views": {
-      "explorer": [
-        {
-          "id": "fileExplorer",
-          "name": "Files with Line Count"
-        }
-      ]
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

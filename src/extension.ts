@@ -1,18 +1,21 @@
 import * as vscode from 'vscode';
-import { FileTreeProvider } from './FileTreeProvider';
+import { LineCountDecorationProvider } from './LineCountDecorationProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('File Line Counter is now active!');
 
-	const fileTreeProvider = new FileTreeProvider();
+	const decorationProvider = new LineCountDecorationProvider();
 
-	vscode.window.registerTreeDataProvider('fileExplorer', fileTreeProvider);
+	// Register the file decoration provider for the main explorer
+	context.subscriptions.push(
+		vscode.window.registerFileDecorationProvider(decorationProvider)
+	);
 
 	// Refresh when files change
 	const watcher = vscode.workspace.createFileSystemWatcher('**/*');
-	watcher.onDidChange(() => fileTreeProvider.refresh());
-	watcher.onDidCreate(() => fileTreeProvider.refresh());
-	watcher.onDidDelete(() => fileTreeProvider.refresh());
+	watcher.onDidChange(() => decorationProvider.refresh());
+	watcher.onDidCreate(() => decorationProvider.refresh());
+	watcher.onDidDelete(() => decorationProvider.refresh());
 
 	context.subscriptions.push(watcher);
 }
