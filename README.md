@@ -18,7 +18,7 @@ In Settings, search for `fileLineCounter.thresholds` or add to `settings.json`:
   { "lines": 100, "color": "charts.green" },
   { "lines": 300, "color": "charts.blue" },
   { "lines": 500, "color": "charts.yellow" },
-  { "lines": 1000, "color": "charts.red" }
+  { "lines": 1000, "color": "charts.orange" }
 ]
 ```
 

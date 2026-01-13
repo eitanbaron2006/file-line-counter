@@ -37,11 +37,11 @@
           "default": [
             {
               "lines": 500,
-              "color": "editorWarning.foreground"
+              "color": "charts.yellow"
             },
             {
               "lines": 1000,
-              "color": "editorError.foreground"
+              "color": "charts.orange"
             }
           ],
           "description": "Line count thresholds with colors. Each item has 'lines' (threshold) and 'color' (VS Code ThemeColor). Higher thresholds take priority.",
