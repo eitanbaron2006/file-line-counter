@@ -19,7 +19,20 @@ export class LineCountDecorationProvider implements vscode.FileDecorationProvide
 
     private getThresholds(): ThresholdConfig[] {
         const config = vscode.workspace.getConfiguration('fileLineCounter');
-        const thresholds = config.get<ThresholdConfig[]>('thresholds') || [];
+        // Handle both old (array) and new (object) formats for backward compatibility during transition
+        const thresholdsConfig = config.get<any>('thresholds');
+
+        let thresholds: ThresholdConfig[] = [];
+
+        if (Array.isArray(thresholdsConfig)) {
+            thresholds = thresholdsConfig;
+        } else if (typeof thresholdsConfig === 'object' && thresholdsConfig !== null) {
+            thresholds = Object.entries(thresholdsConfig).map(([linesStr, color]) => ({
+                lines: parseInt(linesStr, 10),
+                color: color as string
+            })).filter(t => !isNaN(t.lines));
+        }
+
         // Sort by lines descending so higher thresholds are checked first
         return [...thresholds].sort((a, b) => b.lines - a.lines);
     }

@@ -2,7 +2,7 @@
   "name": "file-line-counter",
   "displayName": "file-line-counter",
   "description": "file explorer plugin for displaying the number of lines besides each file in the file tree -  line-counter ",
-  "version": "0.1.7",
+  "version": "0.1.21",
   "publisher": "eitan-baron",
   "engines": {
     "vscode": "^1.104.0"
@@ -132,33 +132,17 @@
           "order": 6
         },
         "fileLineCounter.thresholds": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "lines": {
-                "type": "number"
-              },
-              "color": {
-                "type": "string"
-              }
-            }
+          "type": "object",
+          "default": {
+            "500": "charts.yellow",
+            "1000": "charts.orange",
+            "2000": "charts.red"
           },
-          "default": [
-            {
-              "lines": 500,
-              "color": "charts.yellow"
-            },
-            {
-              "lines": 2000,
-              "color": "charts.orange"
-            },
-            {
-              "lines": 5000,
-              "color": "charts.red"
-            }
-          ],
-          "description": "Line count thresholds for coloring.",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Color ID (e.g. charts.red)"
+          },
+          "description": "Thresholds Map. Item (Left) = Lines, Value (Right) = VS Code ThemeColor.",
           "order": 7
         }
       }

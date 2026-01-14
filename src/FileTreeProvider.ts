@@ -18,8 +18,8 @@ interface WorkspaceStats {
 
 type TreeItemType = 'summaryHeader' | 'stat' | 'largeFile' | 'recommendation' | 'action' | 'filesHeader' | 'directory' | 'file';
 
-// Translations ONLY for recommendations (as requested by user)
-const recommendationTranslations: Record<string, Record<string, string>> = {
+// Translations for UI elements
+const translations: Record<string, Record<string, string>> = {
     en: {
         considerSplitting: 'Consider splitting',
         veryLargeFile: 'very large file',
@@ -29,7 +29,11 @@ const recommendationTranslations: Record<string, Record<string, string>> = {
         highAverageSize: 'High average file size',
         considerSmaller: 'consider smaller modules',
         noIssues: '✅ No issues detected',
-        wellOrganized: 'Your codebase looks well-organized!'
+        wellOrganized: 'Your codebase looks well-organized!',
+        analyzeWithAI: '🤖 Analyze with AI',
+        clickForAnalysis: 'Click to get AI-powered analysis',
+        largeFilesCaption: '⚠️ Large Files',
+        noLargeFiles: 'No large files found'
     },
     he: {
         considerSplitting: 'שקול לפצל את',
@@ -40,7 +44,11 @@ const recommendationTranslations: Record<string, Record<string, string>> = {
         highAverageSize: 'גודל ממוצע גבוה',
         considerSmaller: 'שקול מודולים קטנים יותר',
         noIssues: '✅ לא נמצאו בעיות',
-        wellOrganized: 'הקוד שלך מאורגן היטב!'
+        wellOrganized: 'הקוד שלך מאורגן היטב!',
+        analyzeWithAI: '🤖 ניתוח חכם (AI)',
+        clickForAnalysis: 'לחץ לקבלת ניתוח מבוסס בינה מלאכותית',
+        largeFilesCaption: '⚠️ קבצים גדולים',
+        noLargeFiles: 'לא נמצאו קבצים גדולים'
     }
 };
 
@@ -83,10 +91,10 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         return config.get<string>('language') || 'en';
     }
 
-    // Translation only for recommendations
-    private tRec(key: string): string {
+    // Translation helper
+    private t(key: string): string {
         const lang = this.getLanguage();
-        return recommendationTranslations[lang]?.[key] || recommendationTranslations['en'][key] || key;
+        return translations[lang]?.[key] || translations['en'][key] || key;
     }
 
     private async loadIgnorePatterns(): Promise<void> {
@@ -276,49 +284,31 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         const threshold = this.getSummaryThreshold();
         const items: TreeItem[] = [];
 
-        // Summary section - always English
+        // Summary section - moves Large Files INSIDE this
         items.push(new TreeItem(
             '📊 Summary',
             'summaryHeader',
             vscode.TreeItemCollapsibleState.Expanded,
             undefined,
-            'summary'
+            'summary' // itemId='summary' will handle children including Large Files
         ));
 
-        // Large files section - always English
-        items.push(new TreeItem(
-            `⚠️ Large Files (>${threshold})`,
-            'summaryHeader',
-            stats.largeFiles.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None,
-            stats.largeFiles.length > 0 ? undefined : 'No large files found',
-            'largeFiles'
-        ));
-
-        // Recommendations section - always English header
+        // Recommendations section - moves Analyze with AI INSIDE this
         items.push(new TreeItem(
             '💡 Recommendations',
             'summaryHeader',
             vscode.TreeItemCollapsibleState.Collapsed,
             undefined,
-            'recommendations'
+            'recommendations' // itemId='recommendations' will handle AI button
         ));
 
-        // AI Analysis button - always English
-        items.push(new TreeItem(
-            '🤖 Analyze with AI',
-            'action',
-            vscode.TreeItemCollapsibleState.None,
-            'Click to get AI-powered analysis',
-            'aiAnalysis',
-            {
-                command: 'file-line-counter.analyzeWithAI',
-                title: 'Analyze with AI'
-            }
-        ));
+        // Files section header - matches workspace name
+        const workspaceName = vscode.workspace.workspaceFolders
+            ? vscode.workspace.workspaceFolders[0].name
+            : 'Files';
 
-        // Files section header - always English
         items.push(new TreeItem(
-            '📁 Files',
+            `📁 ${workspaceName}`,
             'filesHeader',
             vscode.TreeItemCollapsibleState.Expanded,
             undefined,
@@ -334,18 +324,37 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
 
         switch (parent.itemId) {
             case 'summary':
-                return [
+                const summaryItems = [
                     new TreeItem(`Total Files: ${stats.totalFiles}`, 'stat', vscode.TreeItemCollapsibleState.None),
                     new TreeItem(`Total Lines: ${stats.totalLines.toLocaleString()}`, 'stat', vscode.TreeItemCollapsibleState.None),
-                    new TreeItem(`Average Lines/File: ${stats.averageLines}`, 'stat', vscode.TreeItemCollapsibleState.None),
-                    new TreeItem(`Files > ${threshold} lines: ${stats.largeFiles.length}`, 'stat', vscode.TreeItemCollapsibleState.None)
+                    new TreeItem(`Average Lines/File: ${stats.averageLines}`, 'stat', vscode.TreeItemCollapsibleState.None)
                 ];
 
+                // Add "Large Files" as a child of Summary
+                summaryItems.push(new TreeItem(
+                    `${this.t('largeFilesCaption')} (>${threshold})`, // Language dependent caption
+                    'summaryHeader',
+                    stats.largeFiles.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+                    stats.largeFiles.length > 0 ? undefined : this.t('noLargeFiles'),
+                    'largeFiles' // This itemId will trigger the existing logic for listing large files
+                ));
+
+                return summaryItems;
+
             case 'largeFiles':
+                const thresholds = this.getThresholds();
                 return stats.largeFiles.map(file => {
-                    const icon = file.lineCount >= 2000 ? '🔴' : file.lineCount >= 1500 ? '🟠' : '🟡';
-                    return new TreeItem(
-                        `${icon} ${file.name}`,
+                    let colorId = 'charts.yellow'; // Fallback
+                    // Find the highest threshold that is met (thresholds are sorted descending)
+                    for (const t of thresholds) {
+                        if (file.lineCount >= t.lines) {
+                            colorId = t.color;
+                            break;
+                        }
+                    }
+
+                    const item = new TreeItem(
+                        file.name,
                         'largeFile',
                         vscode.TreeItemCollapsibleState.None,
                         `${file.lineCount.toLocaleString()} lines`,
@@ -356,11 +365,29 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
                             arguments: [vscode.Uri.file(file.path)]
                         }
                     );
+                    // Use VS Code ThemeIcon with the user's chosen color
+                    item.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor(colorId));
+                    return item;
                 });
 
             case 'recommendations':
                 // Recommendations use translated text based on language setting
-                return this.getRecommendations(stats);
+                const recs = this.getRecommendations(stats);
+
+                // Add AI Analysis button here
+                recs.unshift(new TreeItem(
+                    this.t('analyzeWithAI'),
+                    'action',
+                    vscode.TreeItemCollapsibleState.None,
+                    this.t('clickForAnalysis'),
+                    'aiAnalysis',
+                    {
+                        command: 'file-line-counter.analyzeWithAI',
+                        title: 'Analyze with AI'
+                    }
+                ));
+
+                return recs;
 
             case 'filesRoot':
                 const workspaceRoot = vscode.workspace.workspaceFolders![0].uri.fsPath;
@@ -382,39 +409,39 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         const veryLargeFiles = stats.largeFiles.filter(f => f.lineCount >= 2000);
         for (const file of veryLargeFiles) {
             recommendations.push(new TreeItem(
-                `${this.tRec('considerSplitting')} ${file.name}`,
+                `${this.t('considerSplitting')} ${file.name}`,
                 'recommendation',
                 vscode.TreeItemCollapsibleState.None,
-                `${file.lineCount.toLocaleString()} ${this.tRec('linesThreshold')} - ${this.tRec('veryLargeFile')}`
+                `${file.lineCount.toLocaleString()} ${this.t('linesThreshold')} - ${this.t('veryLargeFile')}`
             ));
         }
 
         // General recommendation about large files (TRANSLATED)
         if (stats.largeFiles.length >= 3) {
             recommendations.push(new TreeItem(
-                `${stats.largeFiles.length} ${this.tRec('filesExceed')} ${threshold} ${this.tRec('linesThreshold')}`,
+                `${stats.largeFiles.length} ${this.t('filesExceed')} ${threshold} ${this.t('linesThreshold')}`,
                 'recommendation',
                 vscode.TreeItemCollapsibleState.None,
-                this.tRec('considerRefactoring')
+                this.t('considerRefactoring')
             ));
         }
 
         // High average lines (TRANSLATED)
         if (stats.averageLines > 300) {
             recommendations.push(new TreeItem(
-                this.tRec('highAverageSize'),
+                this.t('highAverageSize'),
                 'recommendation',
                 vscode.TreeItemCollapsibleState.None,
-                `${stats.averageLines} ${this.tRec('linesThreshold')} - ${this.tRec('considerSmaller')}`
+                `${stats.averageLines} ${this.t('linesThreshold')} - ${this.t('considerSmaller')}`
             ));
         }
 
         if (recommendations.length === 0) {
             recommendations.push(new TreeItem(
-                this.tRec('noIssues'),
+                this.t('noIssues'),
                 'recommendation',
                 vscode.TreeItemCollapsibleState.None,
-                this.tRec('wellOrganized')
+                this.t('wellOrganized')
             ));
         }
 
@@ -427,8 +454,14 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         }
 
         const workspaceRoot = vscode.workspace.workspaceFolders![0].uri.fsPath;
-        const files = fs.readdirSync(dirPath);
+        const files = fs.readdirSync(dirPath).sort((a, b) => {
+            // Pre-sort alphabetically to ensure consistent sub-sorting
+            return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+        });
+
         const items: TreeItem[] = [];
+        const dirItems: TreeItem[] = [];
+        const fileItems: TreeItem[] = [];
 
         for (const file of files) {
             const filePath = path.join(dirPath, file);
@@ -443,42 +476,66 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
                 continue;
             }
 
-            const stat = fs.statSync(filePath);
+            try {
+                const stat = fs.statSync(filePath);
 
-            if (stat.isDirectory()) {
-                items.push(new TreeItem(
-                    file,
-                    'directory',
-                    vscode.TreeItemCollapsibleState.Collapsed,
-                    undefined,
-                    undefined,
-                    undefined,
-                    vscode.Uri.file(filePath)
-                ));
-            } else {
-                const lineCount = await countLines(filePath);
-                items.push(new TreeItem(
-                    file,
-                    'file',
-                    vscode.TreeItemCollapsibleState.None,
-                    `[${lineCount}]`,
-                    undefined,
-                    {
-                        command: 'vscode.open',
-                        title: 'Open File',
-                        arguments: [vscode.Uri.file(filePath)]
-                    },
-                    vscode.Uri.file(filePath)
-                ));
+                if (stat.isDirectory()) {
+                    dirItems.push(new TreeItem(
+                        file,
+                        'directory',
+                        vscode.TreeItemCollapsibleState.Collapsed,
+                        undefined,
+                        undefined,
+                        undefined,
+                        vscode.Uri.file(filePath)
+                    ));
+                } else {
+                    const lineCount = await countLines(filePath);
+                    fileItems.push(new TreeItem(
+                        file,
+                        'file',
+                        vscode.TreeItemCollapsibleState.None,
+                        `[${lineCount}]`,
+                        undefined,
+                        {
+                            command: 'vscode.open',
+                            title: 'Open File',
+                            arguments: [vscode.Uri.file(filePath)]
+                        },
+                        vscode.Uri.file(filePath)
+                    ));
+                }
+            } catch (e) {
+                // Ignore inaccessible files
             }
         }
 
-        return items;
+        // Return directories first, then files
+        return [...dirItems, ...fileItems];
     }
 
     private getSummaryThreshold(): number {
         const config = vscode.workspace.getConfiguration('fileLineCounter');
         return config.get<number>('summaryThreshold') || 1000;
+    }
+
+    private getThresholds(): { lines: number; color: string }[] {
+        const config = vscode.workspace.getConfiguration('fileLineCounter');
+        const thresholdsConfig = config.get<any>('thresholds');
+
+        let thresholds: { lines: number; color: string }[] = [];
+
+        if (Array.isArray(thresholdsConfig)) {
+            thresholds = thresholdsConfig;
+        } else if (typeof thresholdsConfig === 'object' && thresholdsConfig !== null) {
+            thresholds = Object.entries(thresholdsConfig).map(([linesStr, color]) => ({
+                lines: parseInt(linesStr, 10),
+                color: color as string
+            })).filter(t => !isNaN(t.lines));
+        }
+
+        // Sort by lines descending so higher thresholds are checked first
+        return [...thresholds].sort((a, b) => b.lines - a.lines);
     }
 
     async getWorkspaceStats(): Promise<WorkspaceStats> {
