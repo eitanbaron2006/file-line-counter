@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { LineCountDecorationProvider } from './LineCountDecorationProvider';
 import { FileTreeProvider } from './FileTreeProvider';
+import { AiAnalysisService } from './AiAnalysisService';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('File Line Counter is now active!');
@@ -11,11 +12,27 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerFileDecorationProvider(decorationProvider)
 	);
 
-	// 2. Register TreeView for separate view with [lineCount]
+	// 2. Register TreeView with Summary + Files (integrated view)
 	const fileTreeProvider = new FileTreeProvider();
 	vscode.window.registerTreeDataProvider('lineCountView', fileTreeProvider);
 
-	// Refresh both when files change
+	// 3. Register AI Analysis Service and Command
+	const aiService = new AiAnalysisService(fileTreeProvider);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('file-line-counter.analyzeWithAI', () => {
+			aiService.analyzeWithAI();
+		})
+	);
+
+	// 4. Register Refresh Command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('file-line-counter.refresh', () => {
+			decorationProvider.refresh();
+			fileTreeProvider.refresh();
+		})
+	);
+
+	// Refresh providers when files change
 	const watcher = vscode.workspace.createFileSystemWatcher('**/*');
 	watcher.onDidChange(() => {
 		decorationProvider.refresh();
