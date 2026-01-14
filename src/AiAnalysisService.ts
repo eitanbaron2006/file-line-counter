@@ -122,6 +122,8 @@ export class AiAnalysisService {
 
         const selectedModel = model && model.trim() !== '' ? model : defaultModels[provider];
 
+        const header = `> **Analysis by:** ${provider} | **Model:** ${selectedModel}\n\n`;
+
         if (provider === 'Gemini') {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
@@ -134,7 +136,8 @@ export class AiAnalysisService {
                 throw new Error(`Gemini API request failed. Model: ${selectedModel}, URL: ${url}, Status: ${response.status} - ${await response.text()}`);
             }
             const data = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+            return header + text;
         }
 
         if (provider === 'Anthropic') {
@@ -156,7 +159,8 @@ export class AiAnalysisService {
                 throw new Error(`Anthropic API request failed: ${response.status} - ${await response.text()}`);
             }
             const data = await response.json() as { content?: { text?: string }[] };
-            return data.content?.[0]?.text || 'No response from AI';
+            const text = data.content?.[0]?.text || 'No response from AI';
+            return header + text;
         }
 
         // OpenAI, DeepSeek, and Custom (assuming OpenAI-compatible)
@@ -195,7 +199,8 @@ export class AiAnalysisService {
             throw new Error(`${provider} API request failed. URL: ${baseUrl}, KeyLength: ${apiKey.length}, Status: ${response.status} - ${await response.text()}`);
         }
         const data = await response.json() as { choices?: { message?: { content?: string } }[] };
-        return data.choices?.[0]?.message?.content || 'No response from AI';
+        const text = data.choices?.[0]?.message?.content || 'No response from AI';
+        return header + text;
     }
 
     private buildPrompt(stats: { totalFiles: number; totalLines: number; averageLines: number; largeFiles: FileData[] }): string {
