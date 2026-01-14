@@ -71,15 +71,8 @@ export class AiAnalysisService {
         }, async () => {
             try {
                 const stats = await this.fileTreeProvider.getWorkspaceStats();
-                let analysis = '';
-
-                switch (provider) {
-                    case 'Gemini':
-                        analysis = await this.callGeminiApi(apiKey, stats);
-                        break;
-                    default:
-                        throw new Error(`Support for ${provider} is coming soon! Currently only Gemini is fully supported.`);
-                }
+                // Unified call for all providers
+                const analysis = await this.callAiApi(apiKey, stats);
 
                 this.showAnalysisPanel(analysis);
             } catch (error) {
@@ -110,36 +103,96 @@ export class AiAnalysisService {
         return undefined;
     }
 
-    private async callGeminiApi(apiKey: string, stats: { totalFiles: number; totalLines: number; averageLines: number; largeFiles: FileData[] }): Promise<string> {
+    private async callAiApi(apiKey: string, stats: { totalFiles: number; totalLines: number; averageLines: number; largeFiles: FileData[] }): Promise<string> {
+        const config = vscode.workspace.getConfiguration('fileLineCounter');
+        const provider = this.getAiProvider();
+        const model = config.get<string>('aiModel');
+        const customUrl = config.get<string>('customUrl');
+
         const prompt = this.buildPrompt(stats);
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        // Define default models
+        const defaultModels: Record<string, string> = {
+            'Gemini': 'gemini-2.0-flash',
+            'OpenAI': 'gpt-4o',
+            'Anthropic': 'claude-3-5-sonnet-20240620',
+            'DeepSeek': 'deepseek-chat',
+            'Custom': 'gpt-3.5-turbo' // Fallback for custom if not specified
+        };
+
+        const selectedModel = model && model.trim() !== '' ? model : defaultModels[provider];
+
+        if (provider === 'Gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Gemini API request failed: ${response.status} - ${await response.text()}`);
+            }
+            const data = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+        }
+
+        if (provider === 'Anthropic') {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: selectedModel,
+                    max_tokens: 1024,
+                    messages: [{ role: 'user', content: prompt }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Anthropic API request failed: ${response.status} - ${await response.text()}`);
+            }
+            const data = await response.json() as { content?: { text?: string }[] };
+            return data.content?.[0]?.text || 'No response from AI';
+        }
+
+        // OpenAI, DeepSeek, and Custom (assuming OpenAI-compatible)
+        let baseUrl = '';
+        if (provider === 'OpenAI') {
+            baseUrl = 'https://api.openai.com/v1/chat/completions';
+        } else if (provider === 'DeepSeek') {
+            baseUrl = 'https://api.deepseek.com/chat/completions';
+        } else if (provider === 'Custom') {
+            if (!customUrl || customUrl.trim() === '') {
+                throw new Error('Custom URL is required for Custom provider');
+            }
+            baseUrl = customUrl.endsWith('/') ? customUrl + 'chat/completions' : customUrl + '/chat/completions';
+            // If user entered full path including chat/completions, trust it (heuristic check could be added)
+            if (customUrl.includes('/chat/completions')) {
+                baseUrl = customUrl;
+            }
+        }
+
+        const response = await fetch(baseUrl, {
             method: 'POST',
             headers: {
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
+                model: selectedModel,
+                messages: [{ role: 'user', content: prompt }]
             })
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API request failed: ${response.status} - ${errorText}`);
+            throw new Error(`${provider} API request failed: ${response.status} - ${await response.text()}`);
         }
-
-        const data = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!text) {
-            throw new Error('No response from AI');
-        }
-
-        return text;
+        const data = await response.json() as { choices?: { message?: { content?: string } }[] };
+        return data.choices?.[0]?.message?.content || 'No response from AI';
     }
 
     private buildPrompt(stats: { totalFiles: number; totalLines: number; averageLines: number; largeFiles: FileData[] }): string {
