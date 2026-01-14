@@ -284,6 +284,19 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         const threshold = this.getSummaryThreshold();
         const items: TreeItem[] = [];
 
+        // Files section header - matches workspace name - AT THE TOP
+        const workspaceName = vscode.workspace.workspaceFolders
+            ? vscode.workspace.workspaceFolders[0].name
+            : 'Files';
+
+        items.push(new TreeItem(
+            workspaceName, // No folder emoji as requested
+            'filesHeader',
+            vscode.TreeItemCollapsibleState.Expanded,
+            undefined,
+            'filesRoot'
+        ));
+
         // Summary section - moves Large Files INSIDE this
         items.push(new TreeItem(
             '📊 Summary',
@@ -300,19 +313,6 @@ export class FileTreeProvider implements vscode.TreeDataProvider<TreeItem> {
             vscode.TreeItemCollapsibleState.Collapsed,
             undefined,
             'recommendations' // itemId='recommendations' will handle AI button
-        ));
-
-        // Files section header - matches workspace name
-        const workspaceName = vscode.workspace.workspaceFolders
-            ? vscode.workspace.workspaceFolders[0].name
-            : 'Files';
-
-        items.push(new TreeItem(
-            `📁 ${workspaceName}`,
-            'filesHeader',
-            vscode.TreeItemCollapsibleState.Expanded,
-            undefined,
-            'filesRoot'
         ));
 
         return items;
