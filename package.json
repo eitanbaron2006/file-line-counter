@@ -2,7 +2,7 @@
   "name": "file-line-counter",
   "displayName": "file-line-counter",
   "description": "file explorer plugin for displaying the number of lines besides each file in the file tree -  line-counter ",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "publisher": "eitan-baron",
   "engines": {
     "vscode": "^1.104.0"

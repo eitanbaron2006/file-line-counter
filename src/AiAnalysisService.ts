@@ -91,13 +91,13 @@ export class AiAnalysisService {
         const key = config.get<string>('apiKey');
 
         if (key && key.trim() !== '') {
-            return key;
+            return key.trim();
         }
 
         // Fallback for Gemini using the legacy setting
         if (provider === 'Gemini') {
             const oldKey = config.get<string>('geminiApiKey');
-            return oldKey && oldKey.trim() !== '' ? oldKey : undefined;
+            return oldKey && oldKey.trim() !== '' ? oldKey.trim() : undefined;
         }
 
         return undefined;
@@ -131,7 +131,7 @@ export class AiAnalysisService {
             });
 
             if (!response.ok) {
-                throw new Error(`Gemini API request failed: ${response.status} - ${await response.text()}`);
+                throw new Error(`Gemini API request failed. Model: ${selectedModel}, URL: ${url}, Status: ${response.status} - ${await response.text()}`);
             }
             const data = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
             return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
@@ -180,7 +180,10 @@ export class AiAnalysisService {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                // Optional headers for OpenRouter and others
+                'HTTP-Referer': 'https://github.com/eitan-baron/file-line-counter',
+                'X-Title': 'File Line Counter VS Code Extension'
             },
             body: JSON.stringify({
                 model: selectedModel,
@@ -189,7 +192,7 @@ export class AiAnalysisService {
         });
 
         if (!response.ok) {
-            throw new Error(`${provider} API request failed: ${response.status} - ${await response.text()}`);
+            throw new Error(`${provider} API request failed. URL: ${baseUrl}, KeyLength: ${apiKey.length}, Status: ${response.status} - ${await response.text()}`);
         }
         const data = await response.json() as { choices?: { message?: { content?: string } }[] };
         return data.choices?.[0]?.message?.content || 'No response from AI';
